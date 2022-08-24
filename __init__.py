@@ -1,4 +1,4 @@
 """The divoom component."""
 
-DOMAIN = "divoom"
+DOMAIN = "hass-divoom"
 PLATFORMS = ["notify"]
