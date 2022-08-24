@@ -1,5 +1,5 @@
 {
-  "domain": "hass-divoom",
+  "domain": "divoom-bluetooth",
   "name": "Divoom Bluetooth",
   "documentation": "https://github.com/d03n3rfr1tz3/hass-divoom/blob/master/README.md",
   "requirements": [ "pillow>=7.2.0", "pybluez==0.22" ],
