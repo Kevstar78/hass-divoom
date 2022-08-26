@@ -1,6 +1,8 @@
 """Provides class Pixoo that encapsulates the Pixoo communication."""
 
+from bisect import bisect_right
 import logging, math, itertools, select, socket, time
+from typing import Tuple
 from PIL import Image
 
 class Pixoo:
@@ -18,14 +20,20 @@ class Pixoo:
     socket = None
     socket_errno = 0
     message_buf = []
+    brightness: int = 0
+    is_on: bool = True
+    color: Tuple[int, int, int] = (255, 255, 255)
+    mode: str = "Light"
+    score_1: int = 0
+    score_2: int = 0
     
-    host = None
+    mac = None
     port = 1
 
-    def __init__(self, host=None, port=1, logger=None):
+    def __init__(self, mac=None, port=1, logger=None):
         self.type = "Pixoo"
         self.size = 16
-        self.host = host
+        self.mac = mac
         self.port = port
         
         if logger is None:
@@ -35,15 +43,56 @@ class Pixoo:
     def __exit__(self, type, value, traceback):
         self.close()
 
+    def turn_on(self):
+        self.reconnect()
+        color = [self.color[0], self.color[1], self.color[2]]
+        self.show_light(color=color, brightness=self.brightness, power=True)
+        
+        if self.mode == "Clock":
+            self.show_clock(color=color)
+        elif self.mode == "Effect 1":
+            self.show_effects(0)
+        elif self.mode == "Effect 2":
+            self.show_effects(1)
+        elif self.mode == "Effect 3":
+            self.show_effects(2)
+        elif self.mode == "Visualization 1":
+            self.show_visualization(0)
+        elif self.mode == "Visualization 2":
+            self.show_visualization(1)
+        elif self.mode == "Visualization 3":
+            self.show_visualization(2)
+        elif self.mode == "Design":
+            self.show_design()
+        elif self.mode == "Score":
+            self.show_scoreboard(self.score_1, self.score_2)
+
+        self.is_on = True
+
+    def turn_off(self):
+        self.reconnect()
+        self.show_light(color=[0x01, 0x01, 0x01], brightness=self.brightness, power=False)
+        self.is_on = False
+
+    def set_brightness(self, brightness: int = 255):
+        self.brightness = int(brightness / 255 * 100)
+
+    def set_color(self, color: Tuple[int, int, int] = (255, 255, 255)):
+        self.color = color
+
+    def set_mode(self, mode: str):
+        self.mode = mode
+
     def connect(self):
         """Open a connection to the Pixoo."""
         self.socket = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
         
         try:
-            self.socket.connect((self.host, self.port))
+            self.socket.connect((self.mac, self.port))
             self.socket.setblocking(0)
             self.socket_errno = 0
         except socket.error as error:
+            self.logger.warn("failed to connect")
             self.socket_errno = error.errno
 
     def close(self):
