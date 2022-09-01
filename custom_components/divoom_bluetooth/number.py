@@ -1,18 +1,18 @@
 """Platform for Divoom Bluetooth Score integration."""
 from __future__ import annotations
 
-from homeassistant.components.number import (
-    NumberDeviceClass,
-    NumberEntity,
-)
+
 from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_NAME, CONF_MAC
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import device_registry as dr
-
+from .devices.pixoo import Pixoo
 from .const import DOMAIN, ATTR_SCORE_1, ATTR_SCORE_2, CONF_DEVICE_TYPE
+from homeassistant.components.number import (
+    NumberEntity,
+)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -23,33 +23,42 @@ async def async_setup_entry(
     if entry is None:
         return
 
-    name = entry.title
-    device_type = entry.data[CONF_DEVICE_TYPE]
-    mac = entry.data[CONF_MAC]
+    data = {
+        "name": entry.title,
+        "mac": entry.data[CONF_MAC],
+        "device_type": entry.data[CONF_DEVICE_TYPE],
+    }
 
-    async_add_entities([ScoreNumber(1, name, device_type, mac), ScoreNumber(2, name, device_type, mac)])
+    divoomBluetoothDevice = hass.data[DOMAIN]["divoom_device"]
 
-def setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None
-) -> None:
-    """Set up the Score platform."""
-    if discovery_info is None:
-        return
+    async_add_entities([ScoreNumber(1, data, divoomBluetoothDevice), ScoreNumber(2, data, divoomBluetoothDevice)])
 
-    name = discovery_info[CONF_NAME]
-    device_type = discovery_info[CONF_DEVICE_TYPE]
-    mac = discovery_info[CONF_MAC]
-
-    add_entities([ScoreNumber(1, name, device_type, mac), ScoreNumber(2, name, device_type, mac)])
-
+#def setup_platform(
+#    hass: HomeAssistant,
+#    config: ConfigType,
+#    add_entities: AddEntitiesCallback,
+#    discovery_info: DiscoveryInfoType | None = None
+#) -> None:
+#    """Set up the Score platform."""
+#    if discovery_info is None:
+#        return
+#
+#    name = discovery_info[CONF_NAME]
+#    device_type = discovery_info[CONF_DEVICE_TYPE]
+#    mac = discovery_info[CONF_MAC]
+#
+#    add_entities([ScoreNumber(1, name, device_type, mac), ScoreNumber(2, name, device_type, mac)])
 
 class ScoreNumber(NumberEntity):
     """Representation of a Score."""
 
-    def __init__(self, num, name, device_type, mac) -> None:
+    _attr_has_entity_name = True
+
+    def __init__(self, num, data, divoomBluetoothDevice: Pixoo) -> None:
+        name = data["name"]
+        mac = data["mac"]
+        device_type = data["device_type"]
+
         self._attr_name = "Score {}".format(num)
         self._num = num
 
@@ -64,21 +73,19 @@ class ScoreNumber(NumberEntity):
             }
         }
 
+        self._divoomBluetoothDevice = divoomBluetoothDevice
+
     @property
     def state(self) -> float | None:
         if self._num == 1:
-            return self.hass.data[DOMAIN][ATTR_SCORE_1]
+            return self._divoomBluetoothDevice.score_1
         elif self._num == 2:
-            return self.hass.data[DOMAIN][ATTR_SCORE_2]
+            return self._divoomBluetoothDevice.score_2
 
     def set_native_value(self, value: float) -> None:
+        self._attr_state = int(value)
         if self._num == 1:
-            self.hass.data[DOMAIN][ATTR_SCORE_1] = int(value)
+            self._divoomBluetoothDevice.score_1 = self._attr_state
         elif self._num == 2:
-            self.hass.data[DOMAIN][ATTR_SCORE_2] = int(value)
-
-    def update(self) -> None:
-        if self._num == 1:
-            self._attr_state = self.hass.data[DOMAIN][ATTR_SCORE_1]
-        elif self._num == 2:
-            self._attr_state = self.hass.data[DOMAIN][ATTR_SCORE_2]
+            self._divoomBluetoothDevice.score_2 = self._attr_state
+        self._divoomBluetoothDevice.updateScore()

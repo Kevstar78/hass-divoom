@@ -6,11 +6,6 @@ import logging
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_MAC, CONF_DEVICE_ID
-from homeassistant.components.bluetooth import (
-    BluetoothServiceInfoBleak,
-    async_discovered_service_info,
-    async_get_scanner
-)
 from homeassistant.data_entry_flow import AbortFlow, FlowResult
 
 from pprint import pformat
@@ -26,12 +21,13 @@ def format_unique_id(address: str) -> str:
 def discover_devices(device_id: int) -> list[tuple[str, str]]:
     """Discover Bluetooth devices."""
     try:
+        _LOGGER.debug("Discovering devices on device_id: %d", device_id)
         result = bluetooth.discover_devices(
-            duration=3,
+            duration=10,
             lookup_names=True,
             flush_cache=True,
-                lookup_class=False,
-                device_id=device_id,
+            lookup_class=False,
+            device_id=device_id,
         )
     except OSError as ex:
         # OSError is generally thrown if a bluetooth device isn't found
@@ -68,10 +64,13 @@ class DivoomBluetoothConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_discover_devices(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
+        device_id = user_input[CONF_DEVICE_ID]
+
         _LOGGER.debug(pformat(user_input))
-        _LOGGER.debug("device id: {}".format(user_input[CONF_DEVICE_ID]))
+        _LOGGER.debug("device id: {}".format(device_id))
         _LOGGER.debug("discovering devices")
-        self._bt_devices = discover_devices(user_input[CONF_DEVICE_ID])
+
+        self._bt_devices = await self.hass.async_add_executor_job(discover_devices, device_id)
 
         if not self._bt_devices:
             raise AbortFlow("no_devices_found")

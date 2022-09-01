@@ -46,8 +46,12 @@ class Pixoo:
     def turn_on(self):
         self.reconnect()
         color = [self.color[0], self.color[1], self.color[2]]
-        self.show_light(color=color, brightness=self.brightness, power=True)
         
+        if self.mode == "Light":
+            self.show_light(color=color, brightness=self.brightness, power=True)
+        else:
+            self.show_light(color=[0,0,0], brightness=self.brightness, power=False)
+
         if self.mode == "Clock":
             self.show_clock(color=color)
         elif self.mode == "Effect 1":
@@ -68,6 +72,10 @@ class Pixoo:
             self.show_scoreboard(self.score_1, self.score_2)
 
         self.is_on = True
+
+    def updateScore(self):
+        if self.mode == "Score":
+            self.show_scoreboard(self.score_1, self.score_2)
 
     def turn_off(self):
         self.reconnect()
