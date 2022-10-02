@@ -1,0 +1,3 @@
+[submodule "custom_components/divoom_wifi/pixoo"]
+	path = custom_components/divoom_wifi/pixoo
+	url = git@github.com:Kevstar78/pixoo.git
