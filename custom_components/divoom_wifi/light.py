@@ -1,4 +1,4 @@
-"""Platform for Divoom Bluetooth Light integration"""
+"""Platform for Divoom Wifi Light integration"""
 from __future__ import annotations
 
 import os
@@ -12,7 +12,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.components.light import (
     LightEntityFeature, PLATFORM_SCHEMA, LightEntity, ColorMode, ATTR_BRIGHTNESS, ATTR_RGB_COLOR, ATTR_EFFECT,
 )
-from homeassistant.const import CONF_NAME, CONF_MAC
+from homeassistant.const import CONF_NAME, CONF_MAC, CONF_IP_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -23,13 +23,14 @@ from homeassistant.helpers.event import (
 )
 
 from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT
-from .devices.pixoo import Pixoo
+from .pixoo.pixoo import Pixoo
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME): cv.string,
     vol.Required(CONF_MAC): cv.string,
+    vol.Required(CONF_IP_ADDRESS): cv.string,
     vol.Required(CONF_DEVICE_TYPE): cv.string,
     vol.Required(CONF_MEDIA_DIR, default=CONF_MEDIA_DIR_DEFAULT): cv.string,
 })
@@ -39,7 +40,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Divoom Bluetooth Light based on config entry"""
+    """Set up Divoom Wifi Light based on config entry"""
     if entry is None:
         return
         
@@ -52,14 +53,15 @@ async def async_setup_entry(
     data = {
         "name": entry.title,
         "mac": entry.data[CONF_MAC],
+        "ip_adress": entry.data[CONF_IP_ADDRESS],
         "device_type": entry.data[CONF_DEVICE_TYPE],
         "media_directory": media_dir
     }
 
-    divoomBluetoothDevice = hass.data[DOMAIN]["divoom_device"]
+    divoomWifiDevice = hass.data[DOMAIN]["divoom_device"]
 
     async_add_entities([
-        DivoomBluetoothLight(data, divoomBluetoothDevice),
+        DivoomWifiLight(data, divoomWifiDevice),
     ])
 
 #def setup_platform(
@@ -83,45 +85,39 @@ async def async_setup_entry(
 #        "media_directory": discovery_info[CONF_MEDIA_DIR]
 #    }
 #
-#    add_entities([DivoomBluetoothLight(light)])
+#    add_entities([DivoomWifiLight(light)])
 
-class DivoomBluetoothLight(LightEntity):
-    """Representation of Divoom Bluetooth light"""
+class DivoomWifiLight(LightEntity):
+    """Representation of Divoom Wifi light"""
 
-    def __init__(self, data, divoomBluetoothDevice: Pixoo) -> None:
-        """Initialize a Divoom Bluetooth light"""
+    def __init__(self, data, divoomWifiDevice: Pixoo) -> None:
+        """Initialize a Divoom Wifi light"""
         self._attr_name = data["name"]
-        self._attr_unique_id = data["mac"]
+#        self._attr_unique_id = data["ip_adress"]
         self._device_type = data["device_type"]
         self._media_directory = data["media_directory"]
 
-        self._attr_effect_list = [
-            "Light",
-            "Clock",
-            "Effect 1",
-            "Effect 2",
-            "Effect 3",
-            "Visualization 1",
-            "Visualization 2",
-            "Visualization 3",
-            "Design",
-            "Score",
+        self._attr_channel_list = [
+            "FACES",
+            "CLOUD",
+            "VISUALIZER",
+            "CUSTOM"
         ]
 
         self._attr_device_info = {
             "name": data["name"],
             "manufacturer": "divoom",
-            "model": data["device_type"],
-            "connections": {
-                (dr.CONNECTION_BLUETOOTH, data["mac"])
+            "model": data["device_type"]#,
+#            "connections": {
+#                (dr.CONNECTION_NETWORK_MAC, data["mac"])
             }
         }
         
         if not os.path.isdir(self._media_directory):
-            raise "media_directory {0} does not exist (or access denied), divoom_bluetooth may not work properly".format(self._media_directory)
+            raise "media_directory {0} does not exist (or access denied), divoom_wifi may not work properly".format(self._media_directory)
         
-        self._divoomBluetoothDevice = divoomBluetoothDevice
-        self._divoomBluetoothDevice.connect()
+        self._divoomWifiDevice = divoomWifiDevice
+#        self._divoomWifiDevice.connect()
 
 
     async def async_added_to_hass(self):
@@ -134,7 +130,7 @@ class DivoomBluetoothLight(LightEntity):
         self.async_on_remove( # calls returned unsub function on remove
             async_track_state_change_event(self.hass, entity_ids, self.async_score_changed)
         )
-        
+
 
     @property
     def supported_color_modes(self) -> set[ColorMode] | set[str] | None:
@@ -156,22 +152,23 @@ class DivoomBluetoothLight(LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         if ATTR_BRIGHTNESS in kwargs:
-            self._divoomBluetoothDevice.set_brightness(kwargs.get(ATTR_BRIGHTNESS, 255))
+            self._divoomWifiDevice.set_brightness(int(kwargs.get(ATTR_BRIGHTNESS, 255) / 255 * 100)
         else:
-            self._divoomBluetoothDevice.set_brightness(self._attr_brightness or 255)
+            self._divoomWifiDevice.set_brightness(self._attr_brightness)
 
         if ATTR_RGB_COLOR in kwargs:
-            self._divoomBluetoothDevice.set_color(kwargs.get(ATTR_RGB_COLOR, (255, 255, 255)))
+            self._divoomWifiDevice.fill_rgb(kwargs.get(ATTR_RGB_COLOR, (255, 255, 255)))
         
         if ATTR_EFFECT in kwargs:
-            self._divoomBluetoothDevice.set_mode(kwargs.get(ATTR_EFFECT, "Light"))
+            self._divoomWifiDevice.set_channel(kwargs.get(ATTR_EFFECT, "CUSTOM"))
 
-        self._divoomBluetoothDevice.turn_on()
+        self._divoomWifiDevice.turn_on()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._divoomBluetoothDevice.turn_off()
+        self._divoomWifiDevice.turn_off()
 
     async def async_device_update(self, warning: bool = True) -> None:
-        self._attr_is_on = self._divoomBluetoothDevice.is_on
-        self._attr_brightness = int(self._divoomBluetoothDevice.brightness / 100 * 255)
-        self._attr_rgb_color = self._divoomBluetoothDevice.color
+        self._divoomWifiDevice.update_config()
+        self._attr_is_on = bool(self._divoomWifiDevice.device_config["LightSwitch"])
+        self._attr_brightness = int(self._divoomWifiDevice.device_config["Brightness"] / 100 * 255)
+#        self._attr_rgb_color = self._divoomWifiDevice.color

@@ -19,19 +19,19 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Divoom Bluetooth Number Score based on config entry"""
+    """Set up Divoom Wifi Number Score based on config entry"""
     if entry is None:
         return
 
     data = {
         "name": entry.title,
         "mac": entry.data[CONF_MAC],
-        "device_type": entry.data[CONF_DEVICE_TYPE],
+        "device_type": entry.data[CONF_DEVICE_TYPE]
     }
 
-    divoomBluetoothDevice = hass.data[DOMAIN]["divoom_device"]
+    divoomWifiDevice = hass.data[DOMAIN]["divoom_device"]
 
-    async_add_entities([ScoreNumber(1, data, divoomBluetoothDevice), ScoreNumber(2, data, divoomBluetoothDevice)])
+    async_add_entities([ScoreNumber(1, data, divoomWifiDevice), ScoreNumber(2, data, divoomWifiDevice)])
 
 #def setup_platform(
 #    hass: HomeAssistant,
@@ -54,7 +54,7 @@ class ScoreNumber(NumberEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self, num, data, divoomBluetoothDevice: Pixoo) -> None:
+    def __init__(self, num, data, divoomWifiDevice: Pixoo) -> None:
         name = data["name"]
         mac = data["mac"]
         device_type = data["device_type"]
@@ -67,25 +67,22 @@ class ScoreNumber(NumberEntity):
         self._attr_device_info = {
             "name": name,
             "manufacturer": "divoom",
-            "model": device_type,
-            "connections": {
-                (dr.CONNECTION_BLUETOOTH, mac)
-            }
+            "model": device_type
         }
 
-        self._divoomBluetoothDevice = divoomBluetoothDevice
+        self._divoomWifiDevice = divoomWifiDevice
 
     @property
     def state(self) -> float | None:
         if self._num == 1:
-            return self._divoomBluetoothDevice.score_1
+            return self._divoomWifiDevice.score_1
         elif self._num == 2:
-            return self._divoomBluetoothDevice.score_2
+            return self._divoomWifiDevice.score_2
 
     def set_native_value(self, value: float) -> None:
         self._attr_state = int(value)
         if self._num == 1:
-            self._divoomBluetoothDevice.score_1 = self._attr_state
+            self._divoomWifiDevice.score_1 = self._attr_state
         elif self._num == 2:
-            self._divoomBluetoothDevice.score_2 = self._attr_state
-        self._divoomBluetoothDevice.updateScore()
+            self._divoomWifiDevice.score_2 = self._attr_state
+        self._divoomWifiDevice.updateScore()
