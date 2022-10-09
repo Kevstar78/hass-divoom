@@ -1,7 +1,7 @@
 from typing import Final
 import logging
 
-DOMAIN: Final = "divoom_bluetooth"
+DOMAIN: Final = "divoom_wifi"
 ATTR_SCORE_1: Final = 'score_1'
 ATTR_SCORE_2: Final = 'score_2'
 CONF_DEVICE_TYPE: Final = 'device_type'

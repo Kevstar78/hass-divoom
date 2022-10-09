@@ -1,0 +1,11 @@
+{
+  "domain": "divoom_wifi",
+  "name": "Divoom Wifi",
+  "documentation": "https://github.com/Kevstar78/hass-divoom/blob/master/README.md",
+  "requirements": [ "pillow>=8.4.0", "requests>=2.26.0"],
+  "codeowners": ["@d03n3rfr1tz3", "@enoy19", "@Kevstar78"],
+  "iot_class": "assumed_state",
+  "version": "1.0.0",
+  "issue_tracker": "https://github.com/Kevstar78/hass-divoom/issues",
+  "config_flow": true
+}
