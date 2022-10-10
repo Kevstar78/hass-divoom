@@ -23,7 +23,7 @@ from homeassistant.helpers.event import (
 )
 
 from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT
-from .pixoo.pixoo import Pixoo
+from .pixoo import Pixoo
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from homeassistant.const import CONF_MAC, CONF_IP_ADDRESS, CONF_DEVICE_ID, CONF_
 from homeassistant.data_entry_flow import AbortFlow, FlowResult
 import homeassistant.config_validation as cv
 
-from .pixoo.pixoo import discover_wifi_devices
+from .pixoo import discover_wifi_devices
 
 from pprint import pformat
 

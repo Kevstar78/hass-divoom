@@ -11,7 +11,7 @@ from homeassistant.const import CONF_NAME, CONF_MAC, CONF_IP_ADDRESS, CONF_DEVIC
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import device_registry as dr
-from .pixoo.pixoo import Pixoo
+from .pixoo import Pixoo
 from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_MEDIA_DIR, CONF_DEVICE_TYPE, DEFAULT_DEVICE_ID
 
 _LOGGER = logging.getLogger(__name__)

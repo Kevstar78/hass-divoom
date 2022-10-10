@@ -8,7 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import device_registry as dr
-from .devices.pixoo import Pixoo
+from .pixoo import Pixoo
 from .const import DOMAIN, ATTR_SCORE_1, ATTR_SCORE_2, CONF_DEVICE_TYPE
 from homeassistant.components.number import (
     NumberEntity,
