@@ -7,7 +7,7 @@ import logging
 from homeassistant import config_entries
 from homeassistant.const import CONF_MAC, CONF_IP_ADDRESS, CONF_DEVICE_ID, CONF_NAME
 from homeassistant.data_entry_flow import AbortFlow, FlowResult
-import homeassistant.config_validation as cv
+import homeassistant.helpers.config_validation as cv
 
 from .pixoo import discover_wifi_devices
 
@@ -83,25 +83,24 @@ class DivoomWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         else:
             self._wifi_devices = await self.hass.async_add_executor_job(discover_devices)
-            device_list = self._wifi_devices["DeviceList"]
 
-            if device_list == []:
+            if self._wifi_devices == []:
                 _LOGGER.debug("no_devices_found")
                 device_name = ""
                 device_ip = ""
                 device_mac = ""
                 device_id = ""
             else:
-                device_name = device_list[0]["DeviceName"]
-                device_ip = device_list[0]["DevicePrivateIP"]
-                device_mac = device_list[0]["DeviceMac"]
-                device_id = device_list[0]["DeviceId"]
+                device_name = self._wifi_devices[0]["DeviceName"]
+                device_ip = self._wifi_devices[0]["DevicePrivateIP"]
+                device_mac = self._wifi_devices[0]["DeviceMac"]
+                device_id = self._wifi_devices[0]["DeviceId"]
 
             DEVICE_SCHEMA = vol.Schema(
               {vol.Optional(CONF_NAME, default=device_name): cv.string,
                vol.Required(CONF_IP_ADDRESS, default=device_ip): cv.string,
                vol.Required(CONF_MAC, default=device_mac): cv.string,
-               vol.Optional(CONF_DEVICE_ID, default=device_id): cv.int
+               vol.Optional(CONF_DEVICE_ID, default=device_id): cv.positive_int
               }
             )
 

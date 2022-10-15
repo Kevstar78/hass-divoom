@@ -110,11 +110,11 @@ class DivoomWifiLight(LightEntity):
             "model": data["device_type"]#,
 #            "connections": {
 #                (dr.CONNECTION_NETWORK_MAC, data["mac"])
-            }
         }
+#        }
         
-        if not os.path.isdir(self._media_directory):
-            raise "media_directory {0} does not exist (or access denied), divoom_wifi may not work properly".format(self._media_directory)
+#        if not os.path.isdir(self._media_directory):
+#            raise "media_directory {0} does not exist (or access denied), divoom_wifi may not work properly".format(self._media_directory)
         
         self._divoomWifiDevice = divoomWifiDevice
 #        self._divoomWifiDevice.connect()
@@ -152,23 +152,23 @@ class DivoomWifiLight(LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         if ATTR_BRIGHTNESS in kwargs:
-            self._divoomWifiDevice.set_brightness(int(kwargs.get(ATTR_BRIGHTNESS, 255) / 255 * 100)
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.set_brightness, int(kwargs.get(ATTR_BRIGHTNESS, 255) / 255 * 100))
         else:
-            self._divoomWifiDevice.set_brightness(self._attr_brightness)
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.set_brightness, self._attr_brightness)
 
         if ATTR_RGB_COLOR in kwargs:
-            self._divoomWifiDevice.fill_rgb(kwargs.get(ATTR_RGB_COLOR, (255, 255, 255)))
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.fill_rgb, kwargs.get(ATTR_RGB_COLOR, (255, 255, 255)))
         
         if ATTR_EFFECT in kwargs:
-            self._divoomWifiDevice.set_channel(kwargs.get(ATTR_EFFECT, "CUSTOM"))
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.set_channel, kwargs.get(ATTR_EFFECT, "CUSTOM"))
 
-        self._divoomWifiDevice.turn_on()
+        await self.hass.async_add_executor_job(self._divoomWifiDevice.turn_on)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._divoomWifiDevice.turn_off()
+        await self.hass.async_add_executor_job(self._divoomWifiDevice.turn_off)
 
     async def async_device_update(self, warning: bool = True) -> None:
-        self._divoomWifiDevice.update_config()
+        await self.hass.async_add_executor_job(self._divoomWifiDevice.update_config)
         self._attr_is_on = bool(self._divoomWifiDevice.device_config["LightSwitch"])
-        self._attr_brightness = int(self._divoomWifiDevice.device_config["Brightness"] / 100 * 255)
+        self._attr_brightness = int(self._divoomWifiDevice.device_config["Brightness"] * 2.55)
 #        self._attr_rgb_color = self._divoomWifiDevice.color

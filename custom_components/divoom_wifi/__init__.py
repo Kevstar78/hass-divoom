@@ -54,7 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     divoomWifiDevice = None
     if entry.data[CONF_DEVICE_TYPE] == "pixoo":
-        divoomWifiDevice = Pixoo(entry.data[CONF_IP_ADDRESS])
+        divoomWifiDevice = await hass.async_add_executor_job(Pixoo, entry.data[CONF_IP_ADDRESS])
     else:
         raise "device_type {0} does not exist, divoom_wifi will not work".format(entry.data[CONF_DEVICE_TYPE])
 
