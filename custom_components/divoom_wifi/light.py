@@ -24,6 +24,7 @@ from homeassistant.helpers.event import (
 
 from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT
 from .pixoo import Pixoo
+from .pixoo import Channel
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,11 +94,11 @@ class DivoomWifiLight(LightEntity):
     def __init__(self, data, divoomWifiDevice: Pixoo) -> None:
         """Initialize a Divoom Wifi light"""
         self._attr_name = data["name"]
-#        self._attr_unique_id = data["ip_adress"]
+        self._attr_unique_id = data["mac"]
         self._device_type = data["device_type"]
         self._media_directory = data["media_directory"]
 
-        self._attr_channel_list = [
+        self._attr_effect_list = [
             "FACES",
             "CLOUD",
             "VISUALIZER",
@@ -157,10 +158,11 @@ class DivoomWifiLight(LightEntity):
             await self.hass.async_add_executor_job(self._divoomWifiDevice.set_brightness, self._attr_brightness)
 
         if ATTR_RGB_COLOR in kwargs:
-            await self.hass.async_add_executor_job(self._divoomWifiDevice.fill_rgb, kwargs.get(ATTR_RGB_COLOR, (255, 255, 255)))
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.fill, kwargs.get(ATTR_RGB_COLOR, (255, 255, 255)))
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.push)
         
         if ATTR_EFFECT in kwargs:
-            await self.hass.async_add_executor_job(self._divoomWifiDevice.set_channel, kwargs.get(ATTR_EFFECT, "CUSTOM"))
+            await self.hass.async_add_executor_job(self._divoomWifiDevice.set_channel, Channel[kwargs.get(ATTR_EFFECT, "CUSTOM")])
 
         await self.hass.async_add_executor_job(self._divoomWifiDevice.turn_on)
 

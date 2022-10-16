@@ -63,7 +63,7 @@ class ScoreNumber(NumberEntity):
         self._num = num
 
         self._attr_unique_id = "{}-score-{}".format(mac, num)
-        self._attr_max_value = 100
+        self._attr_native_max_value = 100
         self._attr_device_info = {
             "name": name,
             "manufacturer": "divoom",
@@ -75,14 +75,14 @@ class ScoreNumber(NumberEntity):
     @property
     def state(self) -> float | None:
         if self._num == 1:
-            return self._divoomWifiDevice.score_1
+            return self._divoomWifiDevice.blue_score
         elif self._num == 2:
-            return self._divoomWifiDevice.score_2
+            return self._divoomWifiDevice.red_score
 
     def set_native_value(self, value: float) -> None:
         self._attr_state = int(value)
         if self._num == 1:
-            self._divoomWifiDevice.score_1 = self._attr_state
+            self._divoomWifiDevice.blue_score = self._attr_state
         elif self._num == 2:
-            self._divoomWifiDevice.score_2 = self._attr_state
-        self._divoomWifiDevice.updateScore()
+            self._divoomWifiDevice.red_score = self._attr_state
+        self._divoomWifiDevice.update_score()

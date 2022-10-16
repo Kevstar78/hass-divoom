@@ -93,6 +93,10 @@ class Pixoo:
         
         # Retrieve current device configuration
         self.device_config = self.__get_config()
+        
+        # Defauklt values for Scoreboard
+        self.blue_score = 0
+        self.red_score = 0
 
     def add_display_item(self, text='', xy=(0, 0), color=Palette.WHITE, identifier=1, font=2, width=64,
                          movement_speed=0, direction=TextScrollDirection.LEFT, align=1,
@@ -382,6 +386,8 @@ class Pixoo:
         })
 
     def set_scoreboard(self, blue_score=0, red_score=0):
+        self.blue_score = blue_score
+        self.red_score = red_score
         self.__send_request({
             'Command': 'Tools/SetScoreBoard',
             'BlueScore': blue_score,
@@ -411,6 +417,9 @@ class Pixoo:
 
     def update_config(self):
         self.device_config = self.__get_config()
+        
+    def update_score(self):
+        self.set_scoreboard(self.blue_score, self.red_score)
 
     def __clamp_location(self, xy):
         return clamp(xy[0], 0, self.size - 1), clamp(xy[1], 0, self.size - 1)
