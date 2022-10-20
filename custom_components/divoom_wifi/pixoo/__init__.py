@@ -408,7 +408,18 @@ class Pixoo:
         data = response.json()
         if data['error_code'] != 0:
             self.__error(data)
-            
+
+    def show_image(self, image_path_or_object, **kwargs):
+        self.draw_image(image_path_or_object, **kwargs)
+        self.push()
+
+    def show_image_from_url(self, image_url, **kwargs):
+        image_object = requests.get(image_url, stream=True).raw
+#        if isinstance(image_object, Image.Image):
+        if not "pad_resample" in kwargs:
+            kwargs["pad_resample"] = True
+        self.show_image(image_object, **kwargs)
+
     def turn_on(self):
         self.set_screen_switch(1)
         

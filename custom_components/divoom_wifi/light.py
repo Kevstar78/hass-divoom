@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import voluptuous as vol
 import logging
-import requests
+#import requests
 
 from pprint import pformat
 from typing import Any
@@ -16,9 +16,9 @@ from homeassistant.components.light import (
 from homeassistant.const import CONF_NAME, CONF_MAC, CONF_IP_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+#from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import device_registry as dr, entity_platform, service
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.event import (
     async_track_state_change_event, Event
 )
@@ -37,13 +37,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_MEDIA_DIR, default=CONF_MEDIA_DIR_DEFAULT): cv.string,
 })
 
-def show_image(divoomWifiDevice: Pixoo, image_path: str) -> None:
-    try:
-        image_path = requests.get(image_path, stream=True).raw
-    except:
-        pass
-    divoomWifiDevice.draw_image(image_path, pad_resample=True)
-    divoomWifiDevice.push(reload_counter=True)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -84,28 +77,6 @@ async def async_setup_entry(
       "async_show_image"
       )
 
-#def setup_platform(
-#    hass: HomeAssistant,
-#    config: ConfigType,
-#    add_entities: AddEntitiesCallback,
-#    discovery_info: DiscoveryInfoType
-#) -> None:
-#    """Set up Divoom Bluetooth Light Platform"""
-#    # We only want this platform to be set up via discovery.
-#    if discovery_info is None:
-#        return
-#        
-#    _LOGGER.info(pformat(config))
-#    _LOGGER.info(pformat(discovery_info))
-#
-#    light = {
-#        "name": discovery_info[CONF_NAME],
-#        "mac": discovery_info[CONF_MAC],
-#        "device_type": discovery_info[CONF_DEVICE_TYPE],
-#        "media_directory": discovery_info[CONF_MEDIA_DIR]
-#    }
-#
-#    add_entities([DivoomWifiLight(light)])
 
 class DivoomWifiLight(LightEntity):
     """Representation of Divoom Wifi light"""
@@ -127,17 +98,10 @@ class DivoomWifiLight(LightEntity):
         self._attr_device_info = {
             "name": data["name"],
             "manufacturer": "divoom",
-            "model": data["device_type"]#,
-#            "connections": {
-#                (dr.CONNECTION_NETWORK_MAC, data["mac"])
+            "model": data["device_type"]
         }
-#        }
-        
-#        if not os.path.isdir(self._media_directory):
-#            raise "media_directory {0} does not exist (or access denied), divoom_wifi may not work properly".format(self._media_directory)
-        
+
         self._divoomWifiDevice = divoomWifiDevice
-#        self._divoomWifiDevice.connect()
 
 
     async def async_added_to_hass(self):
@@ -195,5 +159,5 @@ class DivoomWifiLight(LightEntity):
 #        self._attr_rgb_color = self._divoomWifiDevice.color
 
     async def async_show_image(self, image_path: str) -> None:
-        await self.hass.async_add_executor_job(show_image, self._divoomWifiDevice, image_path)
+        await self.hass.async_add_executor_job(self._divoomWifiDevice.show_image_from_url, image_path)
         
