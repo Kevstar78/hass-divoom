@@ -94,7 +94,7 @@ class Pixoo:
         # Retrieve current device configuration
         self.device_config = self.__get_config()
         
-        # Defauklt values for Scoreboard
+        # Default values for Scoreboard
         self.blue_score = 0
         self.red_score = 0
 

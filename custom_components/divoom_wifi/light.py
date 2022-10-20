@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import voluptuous as vol
 import logging
+import requests
 
 from pprint import pformat
 from typing import Any
@@ -17,12 +18,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_platform, service
 from homeassistant.helpers.event import (
     async_track_state_change_event, Event
 )
 
-from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT
+from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT, SERVICE_SHOW_IMAGE
 from .pixoo import Pixoo
 from .pixoo import Channel
 
@@ -35,6 +36,14 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_DEVICE_TYPE): cv.string,
     vol.Required(CONF_MEDIA_DIR, default=CONF_MEDIA_DIR_DEFAULT): cv.string,
 })
+
+def show_image(divoomWifiDevice: Pixoo, image_path: str) -> None:
+    try:
+        image_path = requests.get(image_path, stream=True).raw
+    except:
+        pass
+    divoomWifiDevice.draw_image(image_path, pad_resample=True)
+    divoomWifiDevice.push(reload_counter=True)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -64,6 +73,16 @@ async def async_setup_entry(
     async_add_entities([
         DivoomWifiLight(data, divoomWifiDevice),
     ])
+    
+    platform = entity_platform.async_get_current_platform()
+    
+    platform.async_register_entity_service(
+      SERVICE_SHOW_IMAGE,
+      {
+        vol.Required("image_path"): cv.string,
+      },
+      "async_show_image"
+      )
 
 #def setup_platform(
 #    hass: HomeAssistant,
@@ -174,3 +193,7 @@ class DivoomWifiLight(LightEntity):
         self._attr_is_on = bool(self._divoomWifiDevice.device_config["LightSwitch"])
         self._attr_brightness = int(self._divoomWifiDevice.device_config["Brightness"] * 2.55)
 #        self._attr_rgb_color = self._divoomWifiDevice.color
+
+    async def async_show_image(self, image_path: str) -> None:
+        await self.hass.async_add_executor_job(show_image, self._divoomWifiDevice, image_path)
+        

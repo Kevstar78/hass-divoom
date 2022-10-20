@@ -9,3 +9,4 @@ CONF_MEDIA_DIR: Final = 'media_directory'
 CONF_MEDIA_DIR_DEFAULT: Final = "pixelart"
 DEFAULT_DEVICE_ID: Final = -1
 BT_PREFIX: Final = "BT_"
+SERVICE_SHOW_IMAGE = "show_image"
