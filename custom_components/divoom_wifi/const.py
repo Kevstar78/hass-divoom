@@ -10,3 +10,4 @@ CONF_MEDIA_DIR_DEFAULT: Final = "pixelart"
 DEFAULT_DEVICE_ID: Final = -1
 BT_PREFIX: Final = "BT_"
 SERVICE_SHOW_IMAGE = "show_image"
+SERVICE_SHOW_ALBUM_ARTIST = "show_album_and_artist"

@@ -1,17 +1,14 @@
-import profile
 import voluptuous as vol
-from typing import Any, Final, Tuple
-#import bluetooth
+from typing import Any
 import logging
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_MAC, CONF_IP_ADDRESS, CONF_DEVICE_ID, CONF_NAME
-from homeassistant.data_entry_flow import AbortFlow, FlowResult
+from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
 
-from .pixoo import discover_wifi_devices
+from .pixoo.helpers import discover_wifi_devices
 
-from pprint import pformat
 
 from .const import CONF_DEVICE_TYPE, DOMAIN
 

@@ -1,11 +1,13 @@
 import base64
 import json
 from enum import IntEnum
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw
 import requests
+import time
 
 from ._colors import Palette
 from ._font import retrieve_glyph
+from .helpers import url_image_handle
 
 
 def clamp(value, minimum=0, maximum=255):
@@ -39,14 +41,6 @@ def rgb_to_hex_color(rgb):
 
 def round_location(xy):
     return round(xy[0]), round(xy[1])
-    
-    
-def discover_wifi_devices():
-    response = requests.post("https://app.divoom-gz.com/Device/ReturnSameLANDevice")
-    data = response.json()
-    if data['ReturnCode'] != 0:
-        print(data)
-    return data
 
 
 class Channel(IntEnum):
@@ -414,11 +408,47 @@ class Pixoo:
         self.push()
 
     def show_image_from_url(self, image_url, **kwargs):
-        image_object = requests.get(image_url, stream=True).raw
-#        if isinstance(image_object, Image.Image):
-        if not "pad_resample" in kwargs:
-            kwargs["pad_resample"] = True
-        self.show_image(image_object, **kwargs)
+        image = url_image_handle(image_url)
+        self.show_image(image, **kwargs)
+
+    def show_albumart(self, image):
+        """
+        Display album art of currently played album on pixoo device.
+        """
+        self.show_image(image, pad_resample=True)
+
+    def show_albumart_from_url(self, image):
+        self.show_image_from_url(image, pad_resample=True)
+
+    def show_album_and_artist(self, image_path, artist, album, track):
+        """
+        Displays album art and artist information.
+        """
+        org_image = Image.open(image_path)
+        image = ImageOps.pad(org_image, (64, 64), Image.NEAREST)
+        overlay = Image.new(image.mode, image.size)
+        mask = Image.new('L', image.size, 255)
+        draw = ImageDraw.Draw(mask)
+        draw.rectangle((0,32,64,64), fill=128)
+        image = Image.composite(image, overlay, mask)
+        self.show_albumart(image)
+        time.sleep(.5)
+        self.show_artist_info(artist, album, track)
+        time.sleep(30)
+        self.show_albumart(org_image)
+
+    def show_album_and_artist_from_url(self, image_path, artist, album, track):
+        self.show_album_and_artist(url_image_handle(image_path), artist, album, track)
+
+    def show_artist_info(self, artist, album, track):
+        """
+        Displays information on song, artist, and album.
+        """
+        self.add_display_item(
+            text='{0} - {1}'.format(artist, album), movement_speed=100, xy=(1,32), width=62)
+        self.add_display_item(
+            text='{0}'.format(track), movement_speed=100, xy=(1,48), width=62, identifier=2)
+        self.send_display_list()
 
     def turn_on(self):
         self.set_screen_switch(1)

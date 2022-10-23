@@ -16,3 +16,34 @@ show_image:
       description: The path to the image to be displayed
       # Whether or not field is required (default = false)
       required: true
+
+# Service ID
+show_album_and_artist:
+  # Service name as shown in UI
+  name: Show album cover and artist information
+  # Description of the service
+  description: Shows an album cover and artist information on the Pixoo device
+  # If the service accepts entity IDs, target allows the user to specify entities by entity, device, or area. If `target` is specified, `entity_id` should not be defined in the `fields` map. By default it shows only targets matching entities from the same domain as the service, but if further customization is required, target supports the entity, device, and area selectors (https://www.home-assistant.io/docs/blueprint/selectors/). Entity selector parameters will automatically be applied to device and area, and device selector parameters will automatically be applied to area. 
+  target:
+  # Different fields that your service accepts
+  fields:
+    # Key of the field
+    image_path:
+      # Field name as shown in UI
+      name: Image path
+      # Description of the field
+      description: The path to the image to be displayed
+      # Whether or not field is required (default = false)
+      required: true
+    artist:
+      name: Name of artist
+      description: The name of the artist
+      required: true
+    album:
+      name: Name of album
+      description: The name of the album
+      required: true
+    track:
+      name: Name of track
+      description: The name of the track
+      required: true

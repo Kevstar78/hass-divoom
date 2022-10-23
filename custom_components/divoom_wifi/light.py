@@ -23,7 +23,7 @@ from homeassistant.helpers.event import (
     async_track_state_change_event, Event
 )
 
-from .const import ATTR_SCORE_1, ATTR_SCORE_2, DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT, SERVICE_SHOW_IMAGE
+from .const import DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT, SERVICE_SHOW_IMAGE, SERVICE_SHOW_ALBUM_ARTIST
 from .pixoo import Pixoo
 from .pixoo import Channel
 
@@ -75,6 +75,17 @@ async def async_setup_entry(
         vol.Required("image_path"): cv.string,
       },
       "async_show_image"
+      )
+
+    platform.async_register_entity_service(
+      SERVICE_SHOW_ALBUM_ARTIST,
+      {
+        vol.Required("image_path"): cv.string,
+        vol.Required("artist"): cv.string,
+        vol.Required("album"): cv.string,
+        vol.Required("track"): cv.string,
+      },
+      "async_show_album_and_artist"
       )
 
 
@@ -156,8 +167,10 @@ class DivoomWifiLight(LightEntity):
         await self.hass.async_add_executor_job(self._divoomWifiDevice.update_config)
         self._attr_is_on = bool(self._divoomWifiDevice.device_config["LightSwitch"])
         self._attr_brightness = int(self._divoomWifiDevice.device_config["Brightness"] * 2.55)
-#        self._attr_rgb_color = self._divoomWifiDevice.color
 
     async def async_show_image(self, image_path: str) -> None:
-        await self.hass.async_add_executor_job(self._divoomWifiDevice.show_image_from_url, image_path)
+        await self.hass.async_add_executor_job(self._divoomWifiDevice.show_albumart_from_url, image_path)
+
+    async def async_show_album_and_artist(self, image_path: str, artist: str, album: str, track: str) -> None:
+        await self.hass.async_add_executor_job(self._divoomWifiDevice.show_album_and_artist_from_url, image_path, artist, album, track)
         
