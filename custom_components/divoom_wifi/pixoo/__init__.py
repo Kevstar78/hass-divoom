@@ -1,7 +1,7 @@
 import base64
 import json
 from enum import IntEnum
-from PIL import Image, ImageOps, ImageDraw
+from PIL import Image, ImageOps, ImageDraw, UnidentifiedImageError
 import requests
 import time
 
@@ -48,6 +48,7 @@ class Channel(IntEnum):
     CLOUD = 1
     VISUALIZER = 2
     CUSTOM = 3
+    BLACK_SCREEN = 4
 
 
 class ImageResampleMode(IntEnum):
@@ -361,6 +362,12 @@ class Pixoo:
         data = response.json()
         if data['error_code'] != 0:
             self.__error(data)
+  
+    def set_cloud(self, cloud_id):
+        self.__send_request({
+            'Command': 'Channel/CloudIndex',
+            'Index': cloud_id
+        })
 
     def set_countdown(self, status=1, minutes=1, seconds=1):
         self.__send_request({
@@ -368,6 +375,12 @@ class Pixoo:
             'Minute' : minutes,
             'Second' : seconds,
             'Status' : status
+        })
+        
+    def set_custom_page(self, custom_page_index):
+        self.__send_request({
+            'Command': 'Channel/SetCustomPageIndex',
+            'CustomPageIndex': custom_page_index
         })
 
     def set_face(self, face_id):
@@ -424,7 +437,13 @@ class Pixoo:
         """
         Displays album art and artist information.
         """
-        org_image = Image.open(image_path)
+        try:
+            org_image = Image.open(image_path)
+        except UnidentifiedImageError:
+            if self.debug:
+                print("No image found")
+            return
+
         image = ImageOps.pad(org_image, (64, 64), Image.NEAREST)
         overlay = Image.new(image.mode, image.size)
         mask = Image.new('L', image.size, 255)
