@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from pprint import pformat
 import voluptuous as vol
 
@@ -13,6 +14,8 @@ from .pixoo import Pixoo
 from .const import DOMAIN, CONF_MEDIA_DIR, CONF_DEVICE_TYPE, DEFAULT_DEVICE_ID
 
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.LIGHT, Platform.NUMBER]
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -58,8 +61,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN]["divoom_device"] = divoomWifiDevice
 
-    await hass.config_entries.async_forward_entry_setups(
-        entry, [Platform.LIGHT, Platform.NUMBER]
-    )
+    for component in PLATFORMS:
+        hass.async_create_task(
+            hass.config_entries.async_forward_entry_setup(entry, component)
+        )
 
     return True
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload config entry"""
+    unload_ok = all(
+        await asyncio.gather(
+            *[
+                hass.config_entries.async_forward_entry_unload(entry, component)
+                for component in PLATFORMS
+            ]
+        )
+    )
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+        if not hass.data[DOMAIN]:
+            hass.data.pop(DOMAIN)
+    return unload_ok
+
