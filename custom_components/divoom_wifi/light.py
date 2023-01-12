@@ -22,6 +22,7 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.event import (
     async_track_state_change_event, Event
 )
+from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT, SERVICE_SHOW_IMAGE, SERVICE_SHOW_ALBUM_ARTIST
 from .pixoo import Pixoo
@@ -126,6 +127,14 @@ class DivoomWifiLight(LightEntity):
             async_track_state_change_event(self.hass, entity_ids, self.async_score_changed)
         )
 
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._attr_unique_id)},
+            name=self._attr_device_info["name"],
+            manufacturer=self._attr_device_info["manufacturer"],
+            model=self._attr_device_info["model"]
+        )
 
     @property
     def supported_color_modes(self) -> set[ColorMode] | set[str] | None:
