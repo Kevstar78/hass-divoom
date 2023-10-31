@@ -718,10 +718,10 @@ class Pixoo:
         self.send_display_list()
 
     def turn_on(self):
-        self.set_screen_switch(1)
+        self.set_screen(True)
         
     def turn_off(self):
-        self.set_screen_switch(0)
+        self.set_screen(False)
 
     def update_config(self):
         self.device_config = self.__get_config()
