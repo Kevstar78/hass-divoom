@@ -9,7 +9,7 @@ from PIL import Image, ImageOps, ImageDraw, UnidentifiedImageError
 from ._colors import Palette
 from ._font import retrieve_glyph
 from .helpers import url_image_handle
-from .simulator import Simulator, SimulatorConfig
+#from .simulator import Simulator, SimulatorConfig
 
 
 def clamp(value, minimum=0, maximum=255):
@@ -72,8 +72,8 @@ class Pixoo:
     __simulator = None
     __command_list = []
 
-    def __init__(self, address, size=64, debug=False, refresh_connection_automatically=True, simulated=False,
-                 simulation_config=SimulatorConfig()):
+    def __init__(self, address, size=64, debug=False, refresh_connection_automatically=True, simulated=False):#,
+#                 simulation_config=SimulatorConfig()):
         assert size in [16, 32, 64], \
             'Invalid screen size in pixels given. ' \
             'Valid options are 16, 32, and 64'
@@ -108,8 +108,8 @@ class Pixoo:
             self.__reset_counter()
 
         # We're going to need a simulator
-        if self.simulated:
-            self.__simulator = Simulator(self, simulation_config)
+#        if self.simulated:
+#            self.__simulator = Simulator(self, simulation_config)
 
     def add_command(self, command):
         self.__command_list.append(command)
@@ -773,7 +773,7 @@ class Pixoo:
 
         # If it's simulated, we don't need to actually push it to the divoom
         if self.simulated:
-            self.__simulator.display(self.__buffer, self.__counter)
+#            self.__simulator.display(self.__buffer, self.__counter)
 
             # Simulate this too I suppose
             self.__buffers_send = self.__buffers_send + 1
