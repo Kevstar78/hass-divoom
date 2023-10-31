@@ -497,7 +497,7 @@ class Pixoo:
             'CustomPageIndex': index
         }, gather_command)
 
-    def set_custom_channel(self, index, gather_command=False)):
+    def set_custom_channel(self, index, gather_command=False):
         self.set_custom_page(index)
         self.set_channel(3)
         
