@@ -14,14 +14,13 @@ from homeassistant.components.light import (
     LightEntityFeature, PLATFORM_SCHEMA, LightEntity, ColorMode, ATTR_BRIGHTNESS, ATTR_RGB_COLOR, ATTR_EFFECT,
 )
 from homeassistant.const import CONF_NAME, CONF_MAC, CONF_IP_ADDRESS
-from homeassistant.core import HomeAssistant
+from homeassistant.core import (
+    HomeAssistant, Event)
 from homeassistant.config_entries import ConfigEntry
 #from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.event import (
-    async_track_state_change_event, Event
-)
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN, CONF_DEVICE_TYPE, CONF_MEDIA_DIR, CONF_MEDIA_DIR_DEFAULT, SERVICE_SHOW_IMAGE, SERVICE_SHOW_ALBUM_ARTIST
