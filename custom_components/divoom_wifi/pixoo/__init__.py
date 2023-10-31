@@ -1,13 +1,15 @@
 import base64
 import json
 from enum import IntEnum
-from PIL import Image, ImageOps, ImageDraw, UnidentifiedImageError
+
 import requests
 import time
+from PIL import Image, ImageOps, ImageDraw, UnidentifiedImageError
 
 from ._colors import Palette
 from ._font import retrieve_glyph
 from .helpers import url_image_handle
+from .simulator import Simulator, SimulatorConfig
 
 
 def clamp(value, minimum=0, maximum=255):
@@ -53,7 +55,7 @@ class Channel(IntEnum):
 
 class ImageResampleMode(IntEnum):
     PIXEL_ART = Image.NEAREST
-    SMOOTH = Image.ANTIALIAS
+    SMOOTH = Image.LANCZOS
 
 
 class TextScrollDirection(IntEnum):
@@ -66,13 +68,21 @@ class Pixoo:
     __buffers_send = 0
     __counter = 0
     __display_list = []
+    __refresh_counter_limit = 32
+    __simulator = None
+    __command_list = []
 
-    def __init__(self, address, size=64, debug=False):
-        assert size in [16, 32, 64], 'Invalid screen size in pixels given. Valid options are 16, 32, and 64'
+    def __init__(self, address, size=64, debug=False, refresh_connection_automatically=True, simulated=False,
+                 simulation_config=SimulatorConfig()):
+        assert size in [16, 32, 64], \
+            'Invalid screen size in pixels given. ' \
+            'Valid options are 16, 32, and 64'
 
+        self.refresh_connection_automatically = refresh_connection_automatically
         self.address = address
         self.debug = debug
         self.size = size
+        self.simulated = simulated
 
         # Total number of pixels
         self.pixel_count = self.size * self.size
@@ -93,10 +103,21 @@ class Pixoo:
         self.blue_score = 0
         self.red_score = 0
 
+        # Resetting if needed
+        if self.refresh_connection_automatically and self.__counter > self.__refresh_counter_limit:
+            self.__reset_counter()
+
+        # We're going to need a simulator
+        if self.simulated:
+            self.__simulator = Simulator(self, simulation_config)
+
+    def add_command(self, command):
+        self.__command_list.append(command)
+
     def add_display_item(self, text='', xy=(0, 0), color=Palette.WHITE, identifier=1, font=2, width=64,
                          movement_speed=0, direction=TextScrollDirection.LEFT, align=1,
                          height=16, display_type=22, url_time=None):
-
+        # for values and meaning of display_type see: http://doc.divoom-gz.com/web/#/12?page_id=234
         identifier = clamp(identifier, 0, 39)
 
         text_properties = {
@@ -123,6 +144,9 @@ class Pixoo:
     def clear(self, rgb=Palette.BLACK):
         self.fill(rgb)
 
+    def clear_command_list(self):
+        self.__command_list = []
+
     def clear_display_list(self):
         self.__display_list = []
 
@@ -143,20 +167,31 @@ class Pixoo:
                     local_y = int(index / 3)
                     self.draw_pixel((xy[0] + local_x, xy[1] + local_y), rgb)
 
-    def draw_character_at_location_rgb(self, character, x=0, y=0, r=255, g=255, b=255):
+    def draw_character_at_location_rgb(self, character, x=0, y=0, r=255, g=255,
+                                       b=255):
         self.draw_character(character, (x, y), (r, g, b))
 
-    def draw_filled_rectangle(self, top_left_xy=(0, 0), bottom_right_xy=(1, 1), rgb=Palette.BLACK):
+    def draw_filled_rectangle(self, top_left_xy=(0, 0), bottom_right_xy=(1, 1),
+                              rgb=Palette.BLACK):
         for y in range(top_left_xy[1], bottom_right_xy[1] + 1):
             for x in range(top_left_xy[0], bottom_right_xy[0] + 1):
                 self.draw_pixel((x, y), rgb)
 
-    def draw_filled_rectangle_from_top_left_to_bottom_right_rgb(self, top_left_x=0, top_left_y=0, bottom_right_x=1,
-                                                                bottom_right_y=1, r=0, g=0, b=0):
-        self.draw_filled_rectangle((top_left_x, top_left_y), (bottom_right_x, bottom_right_y), (r, g, b))
+    def draw_filled_rectangle_from_top_left_to_bottom_right_rgb(self,
+                                                                top_left_x=0,
+                                                                top_left_y=0,
+                                                                bottom_right_x=1,
+                                                                bottom_right_y=1,
+                                                                r=0, g=0, b=0):
+        self.draw_filled_rectangle((top_left_x, top_left_y),
+                                   (bottom_right_x, bottom_right_y), (r, g, b))
 
-    def draw_image(self, image_path_or_object, xy=(0, 0), image_resample_mode=ImageResampleMode.PIXEL_ART, pad_resample=False):
-        image = image_path_or_object if isinstance(image_path_or_object, Image.Image) else Image.open(image_path_or_object)
+    def draw_image(self, image_path_or_object, xy=(0, 0),
+                   image_resample_mode=ImageResampleMode.PIXEL_ART,
+                   pad_resample=False):
+        image = image_path_or_object if isinstance(image_path_or_object,
+                                                   Image.Image) else Image.open(
+            image_path_or_object)
         size = image.size
         width = size[0]
         height = size[1]
@@ -164,7 +199,8 @@ class Pixoo:
         # See if it needs to be scaled/resized to fit the display
         if width > self.size or height > self.size:
             if pad_resample:
-                image = ImageOps.pad(image, (self.size, self.size), image_resample_mode)
+                image = ImageOps.pad(image, (self.size, self.size),
+                                     image_resample_mode)
             else:
                 image.thumbnail((self.size, self.size), image_resample_mode)
 
@@ -188,9 +224,11 @@ class Pixoo:
                 if self.size - 1 < placed_y or placed_y < 0:
                     continue
 
-                self.draw_pixel((placed_x, placed_y), rgb_image.getpixel(location))
+                self.draw_pixel((placed_x, placed_y),
+                                rgb_image.getpixel(location))
 
-    def draw_image_at_location(self, image_path_or_object, x, y, image_resample_mode=ImageResampleMode.PIXEL_ART):
+    def draw_image_at_location(self, image_path_or_object, x, y,
+                               image_resample_mode=ImageResampleMode.PIXEL_ART):
         self.draw_image(image_path_or_object, (x, y), image_resample_mode)
 
     def draw_line(self, start_xy, stop_xy, rgb=Palette.WHITE):
@@ -207,13 +245,15 @@ class Pixoo:
                 interpolant = step / amount_of_steps
 
             # Add a pixel as a rounded location
-            line.add(round_location(lerp_location(start_xy, stop_xy, interpolant)))
+            line.add(
+                round_location(lerp_location(start_xy, stop_xy, interpolant)))
 
         # Draw the actual pixel line
         for pixel in line:
             self.draw_pixel(pixel, rgb)
 
-    def draw_line_from_start_to_stop_rgb(self, start_x, start_y, stop_x, stop_y, r=255, g=255, b=255):
+    def draw_line_from_start_to_stop_rgb(self, start_x, start_y, stop_x, stop_y,
+                                         r=255, g=255, b=255):
         self.draw_line((start_x, start_y), (stop_x, stop_y), (r, g, b))
 
     def draw_pixel(self, xy, rgb):
@@ -221,7 +261,8 @@ class Pixoo:
         if xy[0] < 0 or xy[0] >= self.size or xy[1] < 0 or xy[1] >= self.size:
             if self.debug:
                 limit = self.size - 1
-                print(f'[!] Invalid coordinates given: ({xy[0]}, {xy[1]}) (maximum coordinates are ({limit}, {limit})')
+                print(
+                    f'[!] Invalid coordinates given: ({xy[0]}, {xy[1]}) (maximum coordinates are ({limit}, {limit})')
             return
 
         # Calculate the index
@@ -275,27 +316,64 @@ class Pixoo:
             }))
         return response.json()
 
+    def get_device_time(self):
+        response = requests.post(self.__url, json.dumps({
+            'Command': 'Device/GetDeviceTime'
+            }))
+        return response.json()
+
+    def get_face_id(self):
+        response = requests.post(self.__url, json.dumps({
+            'Command': 'Channel/GetClockInfo'
+            }))
+        return response.json()
+
+    def get_weather_info(self):
+        response = requests.post(self.__url, json.dumps({
+            'Command': 'Device/GetWeatherInfo'
+            }))
+        return response.json()
+
+    def play_buzzer(self, active_time, off_time, total_time):
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/PlayBuzzer',
+            'ActiveTimeInCycle': active_time,
+            'OffTimeInCycle': off_time,
+            'PlayTotalTime': total_time
+        })
+
+    def play_divoom_gif(self, file_id=''):
+        # file_id needs to be determined from img upload list (see helpers.py)
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Draw/SendRemote',
+            'FileId': file_id
+        })
+
+    def play_gif(self, file_type=0, file_name=''):
+        # file_type: 2:play net file; 1:play tf’s folder; 0:play tf’s file
+        # file_name (depending on file_type): 2:http address; 1:the folder path; 0:the file path
+        self.__send_request({
+            'Command': 'Device/PlayTFGif',
+            'FileType': file_type,
+            'FileName': file_name
+        })
+
     def push(self, reload_counter=False):
         if reload_counter:
-            self.reload_counter()
+            self.__load_counter()
         self.__send_buffer()
-
-    def reload_counter(self):
-        self.__load_counter()
-
-    def reset_counter(self):
-        response = requests.post(self.__url, '{"Command": "Draw/ResetHttpGifId"}')
-        data = response.json()
-        if data['error_code'] != 0:
-            self.__error(data)
-        else:
-            self.__counter = 1
-            if self.debug:
-                print('[.] Counter reset and stored: ' + str(self.__counter))
 
     def send_animation(self, pic_list, pic_speed=1000, reload_counter=False):
         if reload_counter:
-            self.reload_counter()
+            self.__load_counter()
         pic_num = len(pic_list)
         update_counter = True
         for pic_offset, pic in enumerate(pic_list):
@@ -303,21 +381,43 @@ class Pixoo:
             self.__send_buffer(pic_num, pic_offset, pic_speed, update_counter)
             update_counter = False
 
-    def send_display_list(self):
+    def send_command_list(self, clear_list=True):
+        request = {
+            'Command' : 'Draw/CommandList',
+            'CommandList' : self.__command_list
+        }
+        self.__send_request(request)
+
+        if clear_list:
+            self.clear_command_list()
+
+    def send_command_file_list(self, file_url):
+        self.__send_request({
+            'Command': 'Draw/UseHTTPCommandSource',
+            'CommandUrl': file_url
+        })
+
+    def send_display_list(self, clear_list=True):
         request = {
             'Command' : 'Draw/SendHttpItemList',
             'ItemList' : self.__display_list
         }
         self.__send_request(request)
 
+        if clear_list:
+            self.clear_display_list()
+
     def send_text(self, text, xy=(0, 0), color=Palette.WHITE, identifier=1, font=2, width=64,
-                  movement_speed=0,
-                  direction=TextScrollDirection.LEFT, align=1):
+                  movement_speed=0, direction=TextScrollDirection.LEFT, align=1,
+                  gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
 
         # Make sure the identifier is valid
         identifier = clamp(identifier, 0, 19)
 
-        response = requests.post(self.__url, json.dumps({
+        self.__send_request({
             'Command': 'Draw/SendHttpText',
             'TextId': identifier,
             'x': xy[0],
@@ -329,92 +429,240 @@ class Pixoo:
             'TextString': text,
             'color': rgb_to_hex_color(color),
             'align': align
-        }))
+        }, gather_command)
 
-        data = response.json()
-        if data['error_code'] != 0:
-            self.__error(data)
+    def set_brightness(self, brightness, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
 
-    def set_brightness(self, brightness):
         brightness = clamp(brightness, 0, 100)
-        response = requests.post(self.__url, json.dumps({
+        self.__send_request({
             'Command': 'Channel/SetBrightness',
             'Brightness': brightness
-        }))
-        data = response.json()
-        if data['error_code'] != 0:
-            self.__error(data)
+        }, gather_command)
 
-    def set_channel(self, channel):
-        response = requests.post(self.__url, json.dumps({
+    def set_channel(self, channel, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
             'Command': 'Channel/SetIndex',
             'SelectIndex': int(channel)
-        }))
+        }, gather_command)
         data = response.json()
         if data['error_code'] != 0:
             self.__error(data)
+        
+    def set_clock(self, clock_id, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
 
-    def set_clock(self, clock_id):
-        response = requests.post(self.__url, json.dumps({
+        self.__send_request({
             'Command': 'Channel/SetClockSelectId',
             'ClockId': clock_id
-        }))
-        data = response.json()
-        if data['error_code'] != 0:
-            self.__error(data)
-  
-    def set_cloud(self, cloud_id):
+        }, gather_command)
+
+    def set_cloud(self, cloud_id, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
         self.__send_request({
             'Command': 'Channel/CloudIndex',
             'Index': cloud_id
-        })
+        }, gather_command)
 
-    def set_countdown(self, status=1, minutes=1, seconds=1):
+    def set_countdown(self, status=1, minutes=1, seconds=1, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
         self.__send_request({
             'Command': 'Tools/SetTimer',
             'Minute' : minutes,
             'Second' : seconds,
             'Status' : status
-        })
-        
-    def set_custom_page(self, custom_page_index):
+        }, gather_command)
+
+    def set_custom_page(self, index, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
         self.__send_request({
             'Command': 'Channel/SetCustomPageIndex',
-            'CustomPageIndex': custom_page_index
-        })
+            'CustomPageIndex': index
+        }, gather_command)
 
-    def set_face(self, face_id):
-        self.set_clock(face_id)
+    def set_custom_channel(self, index, gather_command=False)):
+        self.set_custom_page(index)
+        self.set_channel(3)
+        
+    def set_face(self, face_id, gather_command=False):
+        self.set_clock(face_id, gather_command)
 
-    def set_screen_switch(self, onoff):
+    def set_high_light_mode(self, high_light_mode=0, gather_command=False):
+        # 0:close; 1:open
+        # This won't be possible
+        if self.simulated:
+            return
+
         self.__send_request({
-            'Command': 'Channel/OnOffScreen',
-            'OnOff': onoff
-        })
+            'Command': 'Device/SetHighLightMode',
+            'Mode': high_light_mode
+        }, gather_command)
 
-    def set_scoreboard(self, blue_score=0, red_score=0):
+    def set_hour_mode(self, time_flag=0, gather_command=False):
+        # 1:24-hour; 0:12-hour
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/SetTime24Flag',
+            'Mode': time_flag
+        }, gather_command)
+
+    def set_noise_status(self, noise_status, gather_command=False):
+        # noise_status: 1:start; 0:stop
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Tools/SetNoiseStatus',
+            'NoiseStatus': noise_status
+        }, gather_command)
+
+    def set_mirror_mode(self, mirror_mode=0, gather_command=False):
+        # mirror_mode: 0:disable; 1:enalbe
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/SetMirrorMode',
+            'Mode': mirror_mode
+        }, gather_command)
+
+    def set_scoreboard(self, blue_score=0, red_score=0, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
         self.blue_score = blue_score
         self.red_score = red_score
         self.__send_request({
             'Command': 'Tools/SetScoreBoard',
             'BlueScore': blue_score,
             'RedScore': red_score
-        })
+        }, gather_command)
 
-    def set_stopwatch(self, status):
+    def set_stopwatch(self, status, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
         self.__send_request({
             'Command' : 'Tools/SetStopWatch',
             'Status' : status
-        })
+        }, gather_command)
 
-    def set_visualizer(self, equalizer_position):
-        response = requests.post(self.__url, json.dumps({
+    def set_screen(self, on=True, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Channel/OnOffScreen',
+            'OnOff': 1 if on else 0
+        }, gather_command)
+
+    def set_screen_rotation(self, rotation=0, gather_command=False):
+        # rotation_angle: 0:normal, 1:90; 2:180; 3:270 (degree)
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/SetScreenRotationAngle',
+            'Mode': rotation
+        }, gather_command)
+
+    def set_screen_off(self, gather_command=False):
+        self.set_screen(False, gather_command)
+
+    def set_screen_on(self, gather_command=False):
+        self.set_screen(True, gather_command)
+
+    def set_system_time(self, system_time, gather_command=False):
+        # This will set the system time in unix format (seconds since January 1st 1970)
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/SetUTC',
+            'Utc': system_time
+        }, gather_command)
+
+    def set_temperature_mode(self, temperature_mode=0, gather_command=False):
+        # temperature_mode: 0:Celsius; 1:Fahrenheit
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/SetDisTempMode',
+            'Mode': temperature_mode
+        }, gather_command)
+
+    def set_time_zone(self, time_zone='GMT+1', gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Sys/TimeZone',
+            'TimeZoneValue': time_zone
+        }, gather_command)
+
+    def set_visualizer(self, equalizer_position, gather_command=False):
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
             'Command': 'Channel/SetEqPosition',
             'EqPosition': equalizer_position
-        }))
-        data = response.json()
-        if data['error_code'] != 0:
-            self.__error(data)
+        }, gather_command)
+
+    def set_weather_location(self, longitude=0.0, latitude=0.0, gather_command=False):
+        # longitude and latitude in degree decimal
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Sys/LogAndLat',
+            'Longitude': longitude,
+            'Latitude': latitude
+        }, gather_command)
+
+    def set_white_balance(self, r, g, b, gather_command=False):
+        # Range for r, g, b: 0:100
+        # This won't be possible
+        if self.simulated:
+            return
+
+        self.__send_request({
+            'Command': 'Device/SetWhiteBalance',
+            'RValue': r,
+            'GValue': g,
+            'BValue': b
+        }, gather_command)
 
     def show_image(self, image_path_or_object, **kwargs):
         self.draw_image(image_path_or_object, **kwargs)
@@ -496,6 +744,11 @@ class Pixoo:
         return response.json()
  
     def __load_counter(self):
+        # Just assume it's starting at the beginning if we're simulating
+        if self.simulated:
+            self.__counter = 1
+            return
+
         response = requests.post(self.__url, '{"Command": "Draw/GetHttpGifId"}')
         data = response.json()
         if data['error_code'] != 0:
@@ -506,16 +759,27 @@ class Pixoo:
                 print('[.] Counter loaded and stored: ' + str(self.__counter))
 
     def __send_buffer(self, pic_num=1, pic_offset=0, pic_speed=1000, update_counter=True):
-        # Encode the buffer to base64 encoding
-        base64_bytes = base64.b64encode(bytearray(self.__buffer))
-
         # Add to the internal counter
         if update_counter:
             self.__counter = self.__counter + 1
 
+        # Check if we've passed the limit and reset the counter for the animation remotely
+        if self.refresh_connection_automatically and self.__counter >= self.__refresh_counter_limit:
+            self.__reset_counter()
+            self.__counter = 1
+
         if self.debug:
             print(f'[.] Counter set to {self.__counter}')
 
+        # If it's simulated, we don't need to actually push it to the divoom
+        if self.simulated:
+            self.__simulator.display(self.__buffer, self.__counter)
+
+            # Simulate this too I suppose
+            self.__buffers_send = self.__buffers_send + 1
+            return
+
+        # Encode the buffer to base64 encoding
         response = requests.post(self.__url, json.dumps({
             'Command': 'Draw/SendHttpGif',
             'PicNum': pic_num,
@@ -523,7 +787,7 @@ class Pixoo:
             'PicOffset': pic_offset,
             'PicID': self.__counter,
             'PicSpeed': pic_speed,
-            'PicData': str(base64_bytes.decode())
+            'PicData': str(base64.b64encode(bytearray(self.__buffer)).decode())
         }))
         data = response.json()
         if data['error_code'] != 0:
@@ -534,8 +798,27 @@ class Pixoo:
             if self.debug:
                 print(f'[.] Pushed {self.__buffers_send} buffers')
 
-    def __send_request(self, request_dict):
+    def __send_request(self, request_dict, gather_command=False):
+        if gather_command:
+            self.add_command(request_dict)
+            return
+
         response = requests.post(self.__url, json.dumps(request_dict))
+        data = response.json()
+        if data['error_code'] != 0:
+            self.__error(data)
+
+    def __reset_counter(self):
+        if self.debug:
+            print(f'[.] Resetting counter remotely')
+
+        # This won't be possible
+        if self.simulated:
+            return
+
+        response = requests.post(self.__url, json.dumps({
+            'Command': 'Draw/ResetHttpGifId'
+        }))
         data = response.json()
         if data['error_code'] != 0:
             self.__error(data)
